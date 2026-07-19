@@ -5,6 +5,7 @@ describe('prediction math', () => {
   it('calculates the next window around the anchor', () => {
     const schedule = {
       anchorTimestamp: 1000,
+      sphereLifetimeSeconds: 50,
       spawnIntervalSeconds: 100,
       searchWindowMinutes: 10,
       version: 1,
@@ -18,7 +19,7 @@ describe('prediction math', () => {
 
     const prediction = buildPrediction(schedule, calibration, 1050);
     expect(prediction.cycle).toBe(0);
-    expect(prediction.nextTimestamp).toBe(1100);
+    expect(prediction.displayTimestamp).toBe(1100);
     expect(prediction.windowStart).toBe(1100 - 600);
     expect(prediction.windowEnd).toBe(1100 + 600);
   });
@@ -27,6 +28,7 @@ describe('prediction math', () => {
     const schedule = {
       anchorTimestamp: 1000,
       spawnIntervalSeconds: 100,
+      sphereLifetimeSeconds: 50,
       searchWindowMinutes: 10,
       version: 1,
     };
@@ -38,13 +40,14 @@ describe('prediction math', () => {
     };
 
     const prediction = buildPrediction(schedule, calibration, 2100);
-    expect(prediction.nextTimestamp).toBe(2200);
+    expect(prediction.displayTimestamp).toBe(2100);
   });
 
   it('updates the calibration anchor from confirmed drift', () => {
     const schedule = {
       anchorTimestamp: 1000,
       spawnIntervalSeconds: 100,
+      sphereLifetimeSeconds: 50,
       searchWindowMinutes: 10,
       version: 1,
     };
@@ -66,17 +69,19 @@ describe('prediction math', () => {
     const schedule = {
       anchorTimestamp: 1000,
       spawnIntervalSeconds: 100,
+      sphereLifetimeSeconds: 50,
       searchWindowMinutes: 10,
       version: 1,
     };
     const prediction = {
       cycle: 1,
-      nextTimestamp: 1100,
+      displayTimestamp: 1100,
       windowStart: 500,
       windowEnd: 1700,
       driftSeconds: 0,
       progressPercent: 0,
       secondsUntilNext: 0,
+      active: false
     };
 
     expect(getRecentSpawnTimestamps(prediction, schedule, 3)).toEqual([1000, 900, 800]);
@@ -92,12 +97,13 @@ describe('prediction math', () => {
     };
     const prediction = {
       cycle: 7,
-      nextTimestamp: 1100,
+      displayTimestamp: 1100,
       windowStart: 500,
       windowEnd: 1700,
       driftSeconds: 0,
       progressPercent: 0,
       secondsUntilNext: 0,
+      active: false
     };
 
     expect(getCalibrationConfidence(calibration, prediction)).toBe(0.92);
