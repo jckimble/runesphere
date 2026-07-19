@@ -2,13 +2,13 @@
   "name": "RuneSphere Finder",
   "short_name": "RuneSphere",
   "description": "Predict RuneSphere search windows for RuneScape 3.",
-  "start_url": "/",
+  "start_url": "/runesphere/",
   "display": "standalone",
   "background_color": "#020617",
   "theme_color": "#0f172a",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "/runesphere/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

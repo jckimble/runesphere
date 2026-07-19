@@ -10,6 +10,23 @@ export default defineConfig({
       registerType: 'autoUpdate',
       devOptions: { enabled: true },
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      manifest: {
+        name: 'RuneSphere Finder',
+        short_name: 'RuneSphere',
+        description: 'Predict RuneSphere search windows for RuneScape 3.',
+        // Vite prefixes 'base' automatically if you omit the leading slash here
+        start_url: '.', 
+        background_color: '#020617',
+        theme_color: '#0f172a',
+        icons: [
+          {
+            src: 'favicon.svg', // Becomes /runesphere/favicon.svg automatically
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any'
+          }
+        ]
+      }
     }),
   ],
   server: {
