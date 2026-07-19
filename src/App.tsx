@@ -67,11 +67,11 @@ function App() {
   }, [prediction, schedule, displayCount]);
 
   const upcomingWindows = useMemo(() => {
-    return Array.from({ length: displayCount }, (_, index) => prediction.nextTimestamp + (index + 1) * schedule.spawnIntervalSeconds);
-  }, [prediction.nextTimestamp, schedule.spawnIntervalSeconds, displayCount]);
+    return Array.from({ length: displayCount }, (_, index) => prediction.displayTimestamp + (index + 1) * schedule.spawnIntervalSeconds);
+  }, [prediction.displayTimestamp, schedule.spawnIntervalSeconds, displayCount]);
 
   const handleConfirmSpawn = () => {
-    const nextCalibration = applyCalibrationConfirmation(schedule, calibration, now, prediction.nextTimestamp);
+    const nextCalibration = applyCalibrationConfirmation(schedule, calibration, now, prediction.displayTimestamp);
     setCalibration(nextCalibration);
     setStatusMessage('Calibration updated from the latest confirmation.');
   };
@@ -162,7 +162,7 @@ function App() {
         {activeTab === 'Home' && (
           <main className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
             <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-sm transition-all duration-200 hover:-translate-y-1 hover:border-cyan-500/30">
-              <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Next search window</p>
+              <p className="text-sm uppercase tracking-[0.3em] text-slate-400">{prediction.active?"Current RuneSphere":"Next search window"}</p>
               <h2 className="mt-3 text-3xl font-semibold text-white">{createWindowLabel(prediction)}</h2>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">

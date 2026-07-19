@@ -1,18 +1,20 @@
 export type Schedule = {
   anchorTimestamp: number;
   spawnIntervalSeconds: number;
+  sphereLifetimeSeconds: number;
   searchWindowMinutes: number;
   version: number;
 };
 
 export type Prediction = {
   cycle: number;
-  nextTimestamp: number;
+  displayTimestamp: number;
   windowStart: number;
   windowEnd: number;
   driftSeconds: number;
   progressPercent: number;
   secondsUntilNext: number;
+  active: boolean;
 };
 
 export type CalibrationState = {
@@ -32,25 +34,41 @@ export function getCurrentUtcTimestamp() {
 }
 
 export function buildPrediction(schedule: Schedule, calibration: CalibrationState, now: number): Prediction {
+
   const anchor = calibration.userAnchor ?? schedule.anchorTimestamp;
   const elapsed = now - anchor;
   const cycle = Math.floor(elapsed / schedule.spawnIntervalSeconds);
-  const nextTimestamp = anchor + (cycle + 1) * schedule.spawnIntervalSeconds;
-  const windowMinutes = schedule.searchWindowMinutes;
-  const windowStart = nextTimestamp - windowMinutes * 60;
-  const windowEnd = nextTimestamp + windowMinutes * 60;
-  const driftSeconds = now - nextTimestamp;
-  const secondsUntilNext = Math.max(0, nextTimestamp - now);
-  const progressPercent = Math.min(100, Math.max(0, ((now - windowStart) / (windowEnd - windowStart)) * 100));
+
+  const currentSpawn = anchor + cycle * schedule.spawnIntervalSeconds;
+  const nextSpawn = currentSpawn + schedule.spawnIntervalSeconds;
+
+  const currentEnd = currentSpawn + schedule.sphereLifetimeSeconds;
+
+  const showingCurrent = now >= currentSpawn && now < currentEnd;
+
+  const displayTimestamp = showingCurrent ? currentSpawn : nextSpawn;
+  
+  const windowStart = displayTimestamp - schedule.searchWindowMinutes * 60;
+  const windowEnd = showingCurrent ? currentEnd : displayTimestamp + schedule.searchWindowMinutes * 60;
+
+
+  const active = showingCurrent;
+
+  const driftSeconds = now - displayTimestamp;
+  const secondsUntilNext = active ? currentEnd - now : nextSpawn - now;
+  const progressPercent = active ? ((now - currentSpawn) / schedule.sphereLifetimeSeconds) * 100 : ((now - currentEnd) / (schedule.spawnIntervalSeconds - schedule.sphereLifetimeSeconds)) * 100;
+
+  const progress = Math.min(100, Math.max(0, progressPercent));
 
   return {
     cycle,
-    nextTimestamp,
+    displayTimestamp,
     windowStart,
     windowEnd,
     driftSeconds,
-    progressPercent,
+    progressPercent: progress,
     secondsUntilNext,
+    active,
   };
 }
 
@@ -106,5 +124,5 @@ export function formatCountdown(prediction: Prediction) {
 }
 
 export function getRecentSpawnTimestamps(prediction: Prediction, schedule: Schedule, count = 3) {
-  return Array.from({ length: count }, (_, index) => prediction.nextTimestamp - (index + 1) * schedule.spawnIntervalSeconds);
+  return Array.from({ length: count }, (_, index) => prediction.displayTimestamp - (index + 1) * schedule.spawnIntervalSeconds);
 }
