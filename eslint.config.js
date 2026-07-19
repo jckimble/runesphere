@@ -3,8 +3,17 @@ import tseslint from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import reactRefresh from 'eslint-plugin-react-refresh';
 
+
 export default [
   js.configs.recommended,
+  {
+    ignores: [
+      "dist/",
+      "dev-dist/",
+      "coverage/",
+      "node_modules/"
+    ]
+  },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {

@@ -102,12 +102,15 @@ function App() {
 
   const handleExport = () => {
     const payload = exportDiagnostics(schedule, calibration);
+    // eslint-disable-next-line no-undef
     const blob = new Blob([payload], { type: 'application/json' });
+    // eslint-disable-next-line no-undef
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = 'runesphere-diagnostics.json';
     link.click();
+    // eslint-disable-next-line no-undef
     URL.revokeObjectURL(url);
     setStatusMessage('Diagnostics exported.');
   };
