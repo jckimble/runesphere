@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNowStrict } from 'date-fns';
-import { applyCalibrationConfirmation, buildPrediction, createWindowLabel, formatCountdown, getCalibrationConfidence, getCurrentUtcTimestamp, getRecentSpawnTimestamps, type CalibrationState, type Prediction, type Schedule } from './services/prediction';
+import { applyCalibrationConfirmation, buildPrediction, createWindowLabel, formatCountdown, getCalibrationConfidence, getCurrentUtcTimestamp, getLastWeeklyResetTimestamp, getRecentSpawnTimestamps, type CalibrationState, type Prediction, type Schedule } from './services/prediction';
 import { exportDiagnostics, importDiagnostics, loadCalibration, loadSchedule, saveCalibration } from './services/storage';
 
 const tabs = ['Home', 'Upcoming', 'Settings', 'Calibration', 'Developer'] as const;
@@ -31,11 +31,18 @@ function App() {
   const [statusMessage, setStatusMessage] = useState('Ready for the next RuneSphere window.');
   const [displayCount, setDisplayCount] = useState(6);
 
-  const prediction = useMemo<Prediction>(() => buildPrediction(schedule, calibration, now), [schedule, calibration, now]);
+  const [reset, setReset] = useState(() => getLastWeeklyResetTimestamp())
+
+  const prediction = useMemo<Prediction>(() => buildPrediction(schedule, calibration, now), [schedule, calibration, now, reset]);
   const confidence = useMemo(() => getCalibrationConfidence(calibration, prediction), [calibration, prediction]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(getCurrentUtcTimestamp()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setReset(getLastWeeklyResetTimestamp()), 1000);
     return () => window.clearInterval(interval);
   }, []);
 

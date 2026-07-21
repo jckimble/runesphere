@@ -29,13 +29,34 @@ export type CalibrationState = {
   lastCalibrationCycle?: number;
 };
 
+export function getLastWeeklyResetTimestamp(): number {
+  //TODO: Back align this with the actual weekly reset time in the game. For now, we will give the standard time of 11:30
+  const now = new Date();
+  const currentDay = now.getUTCDay();
+  const daysToSubtract = currentDay === 0 ? 6 : currentDay - 1;
+  const resetDate = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    11, 30, 0, 0
+  ));
+  resetDate.setUTCDate(resetDate.getUTCDate() - daysToSubtract);
+  if (now.getTime() < resetDate.getTime()) {
+    resetDate.setUTCDate(resetDate.getUTCDate() - 7);
+  }
+  return Math.floor(resetDate.getTime() / 1000);
+}
+
+
 export function getCurrentUtcTimestamp() {
   return Math.floor(Date.now() / 1000);
 }
 
-export function buildPrediction(schedule: Schedule, calibration: CalibrationState, now: number): Prediction {
-
-  const anchor = calibration.userAnchor ?? schedule.anchorTimestamp;
+export function buildPrediction(schedule: Schedule, calibration: CalibrationState, now: number, resetTimestamp: number = 0): Prediction {
+  const resetTime = schedule.spawnIntervalSeconds-schedule.sphereLifetimeSeconds
+  const firstRunesphere = resetTime + resetTimestamp
+  
+  const anchor = Math.max(calibration.userAnchor || 0, schedule.anchorTimestamp, firstRunesphere);
   const elapsed = now - anchor;
   const cycle = Math.floor(elapsed / schedule.spawnIntervalSeconds);
 
