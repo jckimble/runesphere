@@ -53,10 +53,10 @@ export function getCurrentUtcTimestamp() {
 }
 
 export function buildPrediction(schedule: Schedule, calibration: CalibrationState, now: number, resetTimestamp: number = 0): Prediction {
-  const resetTime = schedule.spawnIntervalSeconds-schedule.sphereLifetimeSeconds
-  const firstRunesphere = resetTime + resetTimestamp
+  //const resetTime = schedule.spawnIntervalSeconds-schedule.sphereLifetimeSeconds
+  //const firstRunesphere = resetTime + resetTimestamp
   
-  const anchor = Math.max(calibration.userAnchor || 0, schedule.anchorTimestamp, firstRunesphere);
+  const anchor = Math.max(calibration.userAnchor || 0, schedule.anchorTimestamp);
   const elapsed = now - anchor;
   const cycle = Math.floor(elapsed / schedule.spawnIntervalSeconds);
 
