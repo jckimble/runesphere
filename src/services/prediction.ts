@@ -37,7 +37,7 @@ export function getLastWeeklyResetTimestamp(): number {
   const resetDate = new Date(Date.UTC(
     now.getUTCFullYear(),
     now.getUTCMonth(),
-    now.getUTCDate(),
+    now.getUTCDate()-1, // Subtract 1 day cause the day is really sunday, but the reset is on monday
     11, 30, 0, 0
   ));
   resetDate.setUTCDate(resetDate.getUTCDate() - daysToSubtract);
@@ -53,10 +53,10 @@ export function getCurrentUtcTimestamp() {
 }
 
 export function buildPrediction(schedule: Schedule, calibration: CalibrationState, now: number, resetTimestamp: number = 0): Prediction {
-  //const resetTime = schedule.spawnIntervalSeconds-schedule.sphereLifetimeSeconds
-  //const firstRunesphere = resetTime + resetTimestamp
+  const resetTime = schedule.spawnIntervalSeconds-schedule.sphereLifetimeSeconds
+  const firstRunesphere = resetTime + resetTimestamp
   
-  const anchor = Math.max(calibration.userAnchor || 0, schedule.anchorTimestamp);
+  const anchor = Math.max(calibration.userAnchor || 0, schedule.anchorTimestamp, firstRunesphere);
   const elapsed = now - anchor;
   const cycle = Math.floor(elapsed / schedule.spawnIntervalSeconds);
 
