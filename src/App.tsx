@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNowStrict } from 'date-fns';
-import { applyCalibrationConfirmation, buildPrediction, createWindowLabel, formatCountdown, getCalibrationConfidence, getCurrentUtcTimestamp, getRecentSpawnTimestamps, type CalibrationState, type Prediction, type Schedule } from './services/prediction';
+import { applyCalibrationConfirmation, buildPrediction, createWindowLabel, formatCountdown, getCalibrationConfidence, getCurrentUtcTimestamp, getRecentSpawnTimestamps, type CalibrationState, type Prediction } from './services/prediction';
 import { loadCalibration, saveCalibration } from './services/storage';
 import { EstimatedSchedule } from './services/schedule';
 
