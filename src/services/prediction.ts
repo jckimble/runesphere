@@ -1,10 +1,4 @@
-export type Schedule = {
-  anchorTimestamp: number;
-  spawnIntervalSeconds: number;
-  sphereLifetimeSeconds: number;
-  searchWindowMinutes: number;
-  version: number;
-};
+import { Schedule } from "./schedule";
 
 export type Prediction = {
   cycle: number;
@@ -29,34 +23,12 @@ export type CalibrationState = {
   lastCalibrationCycle?: number;
 };
 
-export function getLastWeeklyResetTimestamp(): number {
-  //TODO: Back align this with the actual weekly reset time in the game. For now, we will give the standard time of 11:30
-  const now = new Date();
-  const currentDay = now.getUTCDay();
-  const daysToSubtract = currentDay === 0 ? 6 : currentDay - 1;
-  const resetDate = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()-1, // Subtract 1 day cause the day is really sunday, but the reset is on monday
-    11, 30, 0, 0
-  ));
-  resetDate.setUTCDate(resetDate.getUTCDate() - daysToSubtract);
-  if (now.getTime() < resetDate.getTime()) {
-    resetDate.setUTCDate(resetDate.getUTCDate() - 7);
-  }
-  return Math.floor(resetDate.getTime() / 1000);
-}
-
-
 export function getCurrentUtcTimestamp() {
   return Math.floor(Date.now() / 1000);
 }
 
-export function buildPrediction(schedule: Schedule, calibration: CalibrationState, now: number, resetTimestamp: number = 0): Prediction {
-  const resetTime = schedule.spawnIntervalSeconds-schedule.sphereLifetimeSeconds
-  const firstRunesphere = resetTime + resetTimestamp
-  
-  const anchor = Math.max(calibration.userAnchor || 0, schedule.anchorTimestamp, firstRunesphere);
+export function buildPrediction(schedule: Schedule, calibration: CalibrationState, now: number): Prediction {
+  const anchor = Math.max(calibration.userAnchor || 0, schedule.getAnchor());
   const elapsed = now - anchor;
   const cycle = Math.floor(elapsed / schedule.spawnIntervalSeconds);
 
@@ -100,9 +72,9 @@ export function applyCalibrationConfirmation(schedule: Schedule, calibration: Ca
     { actualTimestamp, predictedTimestamp, drift },
   ];
   const averageDrift = confirmedSpawns.reduce((sum, entry) => sum + entry.drift, 0) / confirmedSpawns.length;
-  const userAnchor = calibration.userAnchor ?? schedule.anchorTimestamp;
+  const userAnchor = calibration.userAnchor ?? schedule.getAnchor();
   const nextUserAnchor = userAnchor + averageDrift;
-  const lastCalibrationCycle = Math.max(0, Math.floor((actualTimestamp - (calibration.userAnchor ?? schedule.anchorTimestamp)) / schedule.spawnIntervalSeconds));
+  const lastCalibrationCycle = Math.max(0, Math.floor((actualTimestamp - (calibration.userAnchor ?? schedule.getAnchor())) / schedule.spawnIntervalSeconds));
 
   return {
     ...calibration,
@@ -117,7 +89,7 @@ export function applyCalibrationConfirmation(schedule: Schedule, calibration: Ca
 export function getCalibrationConfidence(calibration: CalibrationState, prediction: Prediction) {
   const lastCalibrationCycle = calibration.lastCalibrationCycle ?? 0;
   const cyclesSinceCalibration = Math.max(0, prediction.cycle - lastCalibrationCycle);
-  const confidence = Math.max(0, 1 - cyclesSinceCalibration * 0.02);
+  const confidence = Math.max(0, 1 - cyclesSinceCalibration * 0.01);
   return Number(confidence.toFixed(2));
 }
 

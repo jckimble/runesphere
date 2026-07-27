@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNowStrict } from 'date-fns';
-import { applyCalibrationConfirmation, buildPrediction, createWindowLabel, formatCountdown, getCalibrationConfidence, getCurrentUtcTimestamp, getLastWeeklyResetTimestamp, getRecentSpawnTimestamps, type CalibrationState, type Prediction, type Schedule } from './services/prediction';
-import { exportDiagnostics, importDiagnostics, loadCalibration, loadSchedule, saveCalibration } from './services/storage';
+import { applyCalibrationConfirmation, buildPrediction, createWindowLabel, formatCountdown, getCalibrationConfidence, getCurrentUtcTimestamp, getRecentSpawnTimestamps, type CalibrationState, type Prediction, type Schedule } from './services/prediction';
+import { loadCalibration, saveCalibration } from './services/storage';
+import { EstimatedSchedule } from './services/schedule';
 
 const tabs = ['Home', 'Upcoming', 'Settings', 'Calibration', 'Developer'] as const;
 type Tab = (typeof tabs)[number];
@@ -16,10 +17,8 @@ function formatLocalLabel(timestampSeconds: number) {
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('Home');
-  const [schedule, setSchedule] = useState<Schedule>(loadSchedule());
   const [calibration, setCalibration] = useState<CalibrationState>(loadCalibration());
   const [now, setNow] = useState(() => getCurrentUtcTimestamp());
-  const [importText, setImportText] = useState('');
   const [notificationPermission, setNotificationPermission] = useState<'default' | 'granted' | 'denied' | null>(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       return null;
@@ -30,19 +29,13 @@ function App() {
   const [notifiedWindowKey, setNotifiedWindowKey] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('Ready for the next RuneSphere window.');
   const [displayCount, setDisplayCount] = useState(6);
+  const schedule = EstimatedSchedule
 
-  const [reset, setReset] = useState(() => getLastWeeklyResetTimestamp())
-
-  const prediction = useMemo<Prediction>(() => buildPrediction(schedule, calibration, now), [schedule, calibration, now, reset]);
+  const prediction = useMemo<Prediction>(() => buildPrediction(schedule, calibration, now), [schedule, calibration, now]);
   const confidence = useMemo(() => getCalibrationConfidence(calibration, prediction), [calibration, prediction]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(getCurrentUtcTimestamp()), 1000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setReset(getLastWeeklyResetTimestamp()), 1000);
     return () => window.clearInterval(interval);
   }, []);
 
@@ -105,32 +98,6 @@ function App() {
     setNotificationPermission(permission);
     setNotificationsEnabled(permission === 'granted');
     setStatusMessage(permission === 'granted' ? 'Notifications enabled.' : 'Notifications were not enabled.');
-  };
-
-  const handleExport = () => {
-    const payload = exportDiagnostics(schedule, calibration);
-    // eslint-disable-next-line no-undef
-    const blob = new Blob([payload], { type: 'application/json' });
-    // eslint-disable-next-line no-undef
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'runesphere-diagnostics.json';
-    link.click();
-    // eslint-disable-next-line no-undef
-    URL.revokeObjectURL(url);
-    setStatusMessage('Diagnostics exported.');
-  };
-
-  const handleImport = () => {
-    try {
-      const imported = importDiagnostics(importText);
-      setSchedule(imported.schedule);
-      setCalibration(imported.calibration);
-      setStatusMessage('Configuration imported successfully.');
-    } catch {
-      setStatusMessage('Unable to import that file. Please check the JSON format.');
-    }
   };
 
   return (
@@ -198,7 +165,7 @@ function App() {
                   <div className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.25em] text-cyan-200">Confidence {(confidence * 100).toFixed(0)}%</div>
                 </div>
                 <ul className="mt-4 space-y-3 text-sm text-slate-300">
-                  <li>Base time: {formatLocalLabel(schedule.anchorTimestamp)}</li>
+                  <li>Base time: {formatLocalLabel(schedule.getAnchor())}</li>
                   <li>Repeat every: {schedule.spawnIntervalSeconds} seconds</li>
                   <li>Search window: ±{schedule.searchWindowMinutes} minutes</li>
                   <li>Calibration decays by 2% per cycle after a confirmation.</li>
@@ -290,20 +257,6 @@ function App() {
                 <button onClick={handleEnableNotifications} className="rounded-xl bg-cyan-500 px-4 py-2 font-medium text-slate-950">Request permission</button>
               </div>
             </div>
-
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6">
-              <h3 className="text-xl font-semibold">Save or restore</h3>
-              <div className="mt-4 space-y-4">
-                <button onClick={handleExport} className="rounded-xl border border-slate-700 px-4 py-2 font-medium text-slate-200">Export diagnostics</button>
-                <textarea
-                  value={importText}
-                  onChange={(event) => setImportText(event.target.value)}
-                  className="min-h-40 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-sm text-slate-200"
-                  placeholder="Paste exported JSON here"
-                />
-                <button onClick={handleImport} className="rounded-xl bg-cyan-500 px-4 py-2 font-medium text-slate-950">Import configuration</button>
-              </div>
-            </div>
           </section>
         )}
 
@@ -334,7 +287,7 @@ function App() {
             <div className="mt-4 grid gap-3 text-sm text-slate-300 md:grid-cols-2">
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Current Unix time: {now}</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Current time: {formatLocalLabel(now)}</div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Base time: {formatLocalLabel(schedule.anchorTimestamp)}</div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Base time: {formatLocalLabel(schedule.getAnchor())}</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Your adjusted time: {calibration.userAnchor ? formatLocalLabel(calibration.userAnchor) : 'not set'}</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Cycle number: {prediction.cycle}</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Time since predicted spawn: {Math.abs(prediction.driftSeconds)}s</div>
@@ -342,7 +295,6 @@ function App() {
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Confidence: {(confidence * 100).toFixed(0)}%</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Prediction window: {createWindowLabel(prediction)}</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Window range: {formatLocalLabel(prediction.windowStart)} → {formatLocalLabel(prediction.windowEnd)}</div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Exported diagnostics: {exportDiagnostics(schedule, calibration)}</div>
             </div>
           </section>
         )}
