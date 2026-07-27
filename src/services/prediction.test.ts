@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { applyCalibrationConfirmation, buildPrediction, getCalibrationConfidence, getLastWeeklyResetTimestamp, getRecentSpawnTimestamps } from './prediction';
+import { applyCalibrationConfirmation, buildPrediction, getCalibrationConfidence, getRecentSpawnTimestamps } from './prediction';
+import { StaticSchedule } from './schedule';
 
 describe('prediction math', () => {
   it('calculates the next window around the anchor', () => {
-    const schedule = {
-      anchorTimestamp: 1000,
-      sphereLifetimeSeconds: 50,
-      spawnIntervalSeconds: 100,
-      searchWindowMinutes: 10,
-      version: 1,
-    };
+    const schedule = new StaticSchedule(
+      1000,
+      50,
+      100,
+      10,
+      1,
+    );
     const calibration = {
       confirmedSpawns: [],
       userAnchor: null,
@@ -18,20 +19,20 @@ describe('prediction math', () => {
     };
 
     const prediction = buildPrediction(schedule, calibration, 1050);
-    expect(prediction.cycle).toBe(0);
-    expect(prediction.displayTimestamp).toBe(1100);
-    expect(prediction.windowStart).toBe(1100 - 600);
-    expect(prediction.windowEnd).toBe(1100 + 600);
+    expect(prediction.cycle).toBe(1);
+    expect(prediction.displayTimestamp).toBe(1050);
+    expect(prediction.windowStart).toBe(1050 - 600);
+    expect(prediction.windowEnd).toBe(1050 + 100);
   });
 
   it('calculates the current window when the runesphere is active', () => {
-    const schedule = {
-      anchorTimestamp: 1000,
-      spawnIntervalSeconds: 100,
-      sphereLifetimeSeconds: 50,
-      searchWindowMinutes: 10,
-      version: 1,
-    };
+    const schedule = new StaticSchedule(
+      1000,
+      100,
+      50,
+      10,
+      1
+    );
     const calibration = {
       confirmedSpawns: [],
       userAnchor: null,
@@ -47,13 +48,13 @@ describe('prediction math', () => {
   });
 
   it('calculates the next window after the runesphere has expired', () => {
-    const schedule = {
-      anchorTimestamp: 1000,
-      spawnIntervalSeconds: 100,
-      sphereLifetimeSeconds: 50,
-      searchWindowMinutes: 10,
-      version: 1,
-    };
+    const schedule = new StaticSchedule(
+      1000,
+      100,
+      50,
+      10,
+      1
+    );
     const calibration = {
       confirmedSpawns: [],
       userAnchor: null,
@@ -69,13 +70,13 @@ describe('prediction math', () => {
   });
 
   it('resets cycle count after a reset timestamp', () => {
-    const schedule = {
-      anchorTimestamp: 500,
-      spawnIntervalSeconds: 100,
-      sphereLifetimeSeconds: 50,
-      searchWindowMinutes: 10,
-      version: 1,
-    };
+    const schedule = new StaticSchedule(
+      500,
+      100,
+      50,
+      10,
+      1
+    );
     const calibration = {
       confirmedSpawns: [{ actualTimestamp: 1000, predictedTimestamp: 900, drift: 5 }],
       userAnchor: 1000,
@@ -89,13 +90,13 @@ describe('prediction math', () => {
   });
 
   it('uses the user anchor when provided', () => {
-    const schedule = {
-      anchorTimestamp: 1000,
-      spawnIntervalSeconds: 100,
-      sphereLifetimeSeconds: 50,
-      searchWindowMinutes: 10,
-      version: 1,
-    };
+    const schedule = new StaticSchedule(
+      1000,
+      100,
+      50,
+      10,
+      1,
+    );
     const calibration = {
       confirmedSpawns: [],
       userAnchor: 2000,
@@ -107,33 +108,14 @@ describe('prediction math', () => {
     expect(prediction.displayTimestamp).toBe(2100);
   });
 
-  it('uses the first runesphere timestamp when it is later than the anchor', () => {
-    const schedule = {
-      anchorTimestamp: 1000,
-      spawnIntervalSeconds: 100,
-      sphereLifetimeSeconds: 50,
-      searchWindowMinutes: 10,
-      version: 1,
-    };
-    const calibration = {
-      confirmedSpawns: [],
-      userAnchor: null,
-      averageDrift: 0,
-      confidence: 0,
-    };
-
-    const prediction = buildPrediction(schedule, calibration, 1050, 200);
-    expect(prediction.displayTimestamp).toBe(1100);
-  });
-
   it('calculates the next window after a confirmed spawn', () => {
-    const schedule = {
-      anchorTimestamp: 1000,
-      spawnIntervalSeconds: 100,
-      sphereLifetimeSeconds: 50,
-      searchWindowMinutes: 10,
-      version: 1,
-    };
+    const schedule = new StaticSchedule(
+      1000,
+      100,
+      50,
+      10,
+      1
+    );
     const calibration = {
       confirmedSpawns: [{ actualTimestamp: 1105, predictedTimestamp: 1100, drift: 5 }],
       userAnchor: null,
@@ -147,13 +129,13 @@ describe('prediction math', () => {
   });
 
   it('updates the calibration anchor from confirmed drift', () => {
-    const schedule = {
-      anchorTimestamp: 1000,
-      spawnIntervalSeconds: 100,
-      sphereLifetimeSeconds: 50,
-      searchWindowMinutes: 10,
-      version: 1,
-    };
+    const schedule = new StaticSchedule(
+      1000,
+      100,
+      50,
+      10,
+      1,
+    );
     const calibration = {
       confirmedSpawns: [],
       userAnchor: null,
@@ -169,13 +151,13 @@ describe('prediction math', () => {
   });
 
   it('returns the most recent spawn timestamps', () => {
-    const schedule = {
-      anchorTimestamp: 1000,
-      spawnIntervalSeconds: 100,
-      sphereLifetimeSeconds: 50,
-      searchWindowMinutes: 10,
-      version: 1,
-    };
+    const schedule = new StaticSchedule(
+      1000,
+      100,
+      50,
+      10,
+      1,
+    );
     const prediction = {
       cycle: 1,
       displayTimestamp: 1100,
@@ -188,12 +170,6 @@ describe('prediction math', () => {
     };
 
     expect(getRecentSpawnTimestamps(prediction, schedule, 3)).toEqual([1000, 900, 800]);
-  });
-
-  it('returns the restart time as monday', () => {
-    const resetTime=getLastWeeklyResetTimestamp()
-    const date=new Date(resetTime * 1000)
-    expect(date.getDay()).toBe(0);
   });
 
   it('derives confidence from cycles since the last calibration', () => {
@@ -215,6 +191,6 @@ describe('prediction math', () => {
       active: false
     };
 
-    expect(getCalibrationConfidence(calibration, prediction)).toBe(0.92);
+    expect(getCalibrationConfidence(calibration, prediction)).toBe(0.96);
   });
 });

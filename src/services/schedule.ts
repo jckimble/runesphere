@@ -6,6 +6,20 @@ export type Schedule = {
   version: number;
 };
 
+export class StaticSchedule implements Schedule {
+  constructor(
+    public anchorTimestamp: number,
+    public spawnIntervalSeconds: number,
+    public sphereLifetimeSeconds: number,
+    public searchWindowMinutes: number,
+    public version: number
+  ) {}
+
+  getAnchor(): number {
+    return this.anchorTimestamp
+  }
+}
+
 export const EstimatedSchedule ={
   "spawnIntervalSeconds": 9050,
   "sphereLifetimeSeconds": 3620,
