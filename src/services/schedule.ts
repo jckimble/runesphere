@@ -8,10 +8,15 @@ export type Schedule = {
 
 export class StaticSchedule implements Schedule {
   constructor(
+    // eslint-disable-next-line no-unused-vars
     public anchorTimestamp: number,
+    // eslint-disable-next-line no-unused-vars
     public spawnIntervalSeconds: number,
+    // eslint-disable-next-line no-unused-vars
     public sphereLifetimeSeconds: number,
+    // eslint-disable-next-line no-unused-vars
     public searchWindowMinutes: number,
+    // eslint-disable-next-line no-unused-vars
     public version: number
   ) {}
 
