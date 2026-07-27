@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { applyCalibrationConfirmation, buildPrediction, getCalibrationConfidence, getRecentSpawnTimestamps } from './prediction';
+import { buildPrediction, getCalibrationConfidence, getRecentSpawnTimestamps } from './prediction';
 import { StaticSchedule } from './schedule';
+import { CalibrationSpawn, CalibrationState } from './calibration';
+
+class TestCalibrationState extends CalibrationState {
+  private cycle: number
+  constructor(cs: CalibrationSpawn[] = [],cycle:number = -1) {
+    super();
+    this.cycle=cycle
+    this.confirmedSpawns = cs;
+  }
+  getCycle(): number {
+    if (this.cycle != -1){
+      return this.cycle
+    }
+    return super.getCycle()
+  }
+}
+const emptyCalibration = new TestCalibrationState();
 
 describe('prediction math', () => {
   it('calculates the next window around the anchor', () => {
@@ -11,14 +28,8 @@ describe('prediction math', () => {
       10,
       1,
     );
-    const calibration = {
-      confirmedSpawns: [],
-      userAnchor: null,
-      averageDrift: 0,
-      confidence: 0,
-    };
 
-    const prediction = buildPrediction(schedule, calibration, 1050);
+    const prediction = buildPrediction(schedule, emptyCalibration, 1050);
     expect(prediction.cycle).toBe(1);
     expect(prediction.displayTimestamp).toBe(1050);
     expect(prediction.windowStart).toBe(1050 - 600);
@@ -33,14 +44,8 @@ describe('prediction math', () => {
       10,
       1
     );
-    const calibration = {
-      confirmedSpawns: [],
-      userAnchor: null,
-      averageDrift: 0,
-      confidence: 0,
-    };
 
-    const prediction = buildPrediction(schedule, calibration, 1105);
+    const prediction = buildPrediction(schedule, emptyCalibration, 1105);
     expect(prediction.cycle).toBe(1);
     expect(prediction.displayTimestamp).toBe(1100);
     expect(prediction.windowStart).toBe(1100 - 600);
@@ -55,37 +60,12 @@ describe('prediction math', () => {
       10,
       1
     );
-    const calibration = {
-      confirmedSpawns: [],
-      userAnchor: null,
-      averageDrift: 0,
-      confidence: 0,
-    };
 
-    const prediction = buildPrediction(schedule, calibration, 1155);
+    const prediction = buildPrediction(schedule, emptyCalibration, 1155);
     expect(prediction.cycle).toBe(1);
     expect(prediction.displayTimestamp).toBe(1200);
     expect(prediction.windowStart).toBe(1200 - 600);
     expect(prediction.windowEnd).toBe(1200 + 600);
-  });
-
-  it('uses the user anchor when provided', () => {
-    const schedule = new StaticSchedule(
-      1000,
-      100,
-      50,
-      10,
-      1,
-    );
-    const calibration = {
-      confirmedSpawns: [],
-      userAnchor: 2000,
-      averageDrift: 0,
-      confidence: 0,
-    };
-
-    const prediction = buildPrediction(schedule, calibration, 2100);
-    expect(prediction.displayTimestamp).toBe(2100);
   });
 
   it('calculates the next window after a confirmed spawn', () => {
@@ -96,38 +76,11 @@ describe('prediction math', () => {
       10,
       1
     );
-    const calibration = {
-      confirmedSpawns: [{ actualTimestamp: 1105, predictedTimestamp: 1100, drift: 5 }],
-      userAnchor: null,
-      averageDrift: 5,
-      confidence: 1,
-    };
+    const calibration = new TestCalibrationState([{ actualTimestamp: 1105, resetTimestamp: 1100, drift: 5, cycle:1 }]);
 
     const prediction = buildPrediction(schedule, calibration, 1150);
-    expect(prediction.displayTimestamp).toBe(1200);
-    expect(prediction.driftSeconds).toBe(-50);
-  });
-
-  it('updates the calibration anchor from confirmed drift', () => {
-    const schedule = new StaticSchedule(
-      1000,
-      100,
-      50,
-      10,
-      1,
-    );
-    const calibration = {
-      confirmedSpawns: [],
-      userAnchor: null,
-      averageDrift: 0,
-      confidence: 0,
-    };
-
-    const next = applyCalibrationConfirmation(schedule, calibration, 1105, 1100);
-
-    expect(next.userAnchor).toBe(1005);
-    expect(next.averageDrift).toBe(5);
-    expect(next.confirmedSpawns[0].drift).toBe(5);
+    expect(prediction.displayTimestamp).toBe(1105);
+    expect(prediction.driftSeconds).toBe(45);
   });
 
   it('returns the most recent spawn timestamps', () => {
@@ -153,13 +106,7 @@ describe('prediction math', () => {
   });
 
   it('derives confidence from cycles since the last calibration', () => {
-    const calibration = {
-      confirmedSpawns: [],
-      userAnchor: null,
-      averageDrift: 0,
-      confidence: 0,
-      lastCalibrationCycle: 3,
-    };
+    const calibration = new TestCalibrationState([],3);
     const prediction = {
       cycle: 7,
       displayTimestamp: 1100,

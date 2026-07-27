@@ -25,7 +25,7 @@ export class StaticSchedule implements Schedule {
   }
 }
 
-export const EstimatedSchedule ={
+export const EstimatedSchedule: Schedule ={
   "spawnIntervalSeconds": 9050,
   "sphereLifetimeSeconds": 3620,
   "searchWindowMinutes": 5,

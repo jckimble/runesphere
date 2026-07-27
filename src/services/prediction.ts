@@ -1,3 +1,4 @@
+import { CalibrationState } from "./calibration";
 import { Schedule } from "./schedule";
 
 export type Prediction = {
@@ -11,24 +12,12 @@ export type Prediction = {
   active: boolean;
 };
 
-export type CalibrationState = {
-  confirmedSpawns: Array<{
-    actualTimestamp: number;
-    predictedTimestamp: number;
-    drift: number;
-  }>;
-  userAnchor: number | null;
-  averageDrift: number;
-  confidence: number;
-  lastCalibrationCycle?: number;
-};
-
 export function getCurrentUtcTimestamp() {
   return Math.floor(Date.now() / 1000);
 }
 
 export function buildPrediction(schedule: Schedule, calibration: CalibrationState, now: number): Prediction {
-  const anchor = Math.max(calibration.userAnchor || 0, schedule.getAnchor());
+  const anchor = schedule.getAnchor() + calibration.getDrift();
   const elapsed = now - anchor;
   const cycle = Math.floor(elapsed / schedule.spawnIntervalSeconds);
 
@@ -65,29 +54,8 @@ export function buildPrediction(schedule: Schedule, calibration: CalibrationStat
   };
 }
 
-export function applyCalibrationConfirmation(schedule: Schedule, calibration: CalibrationState, actualTimestamp: number, predictedTimestamp: number): CalibrationState {
-  const drift = actualTimestamp - predictedTimestamp;
-  const confirmedSpawns = [
-    ...calibration.confirmedSpawns,
-    { actualTimestamp, predictedTimestamp, drift },
-  ];
-  const averageDrift = confirmedSpawns.reduce((sum, entry) => sum + entry.drift, 0) / confirmedSpawns.length;
-  const userAnchor = calibration.userAnchor ?? schedule.getAnchor();
-  const nextUserAnchor = userAnchor + averageDrift;
-  const lastCalibrationCycle = Math.max(0, Math.floor((actualTimestamp - (calibration.userAnchor ?? schedule.getAnchor())) / schedule.spawnIntervalSeconds));
-
-  return {
-    ...calibration,
-    confirmedSpawns,
-    userAnchor: nextUserAnchor,
-    averageDrift,
-    confidence: 1,
-    lastCalibrationCycle,
-  };
-}
-
 export function getCalibrationConfidence(calibration: CalibrationState, prediction: Prediction) {
-  const lastCalibrationCycle = calibration.lastCalibrationCycle ?? 0;
+  const lastCalibrationCycle = calibration.getCycle();
   const cyclesSinceCalibration = Math.max(0, prediction.cycle - lastCalibrationCycle);
   const confidence = Math.max(0, 1 - cyclesSinceCalibration * 0.01);
   return Number(confidence.toFixed(2));

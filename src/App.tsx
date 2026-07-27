@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNowStrict } from 'date-fns';
-import { applyCalibrationConfirmation, buildPrediction, createWindowLabel, formatCountdown, getCalibrationConfidence, getCurrentUtcTimestamp, getRecentSpawnTimestamps, type CalibrationState, type Prediction } from './services/prediction';
-import { loadCalibration, saveCalibration } from './services/storage';
+import { buildPrediction, createWindowLabel, formatCountdown, getCalibrationConfidence, getCurrentUtcTimestamp, getRecentSpawnTimestamps, type Prediction } from './services/prediction';
 import { EstimatedSchedule } from './services/schedule';
+import { CalibrationState } from './services/calibration';
 
 const tabs = ['Home', 'Upcoming', 'Settings', 'Calibration', 'Developer'] as const;
 type Tab = (typeof tabs)[number];
@@ -17,7 +17,6 @@ function formatLocalLabel(timestampSeconds: number) {
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('Home');
-  const [calibration, setCalibration] = useState<CalibrationState>(loadCalibration());
   const [now, setNow] = useState(() => getCurrentUtcTimestamp());
   const [notificationPermission, setNotificationPermission] = useState<'default' | 'granted' | 'denied' | null>(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
@@ -29,6 +28,7 @@ function App() {
   const [notifiedWindowKey, setNotifiedWindowKey] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('Ready for the next RuneSphere window.');
   const [displayCount, setDisplayCount] = useState(6);
+  const [calibration] = useState(() => new CalibrationState());
   const schedule = EstimatedSchedule
 
   const prediction = useMemo<Prediction>(() => buildPrediction(schedule, calibration, now), [schedule, calibration, now]);
@@ -38,10 +38,6 @@ function App() {
     const interval = window.setInterval(() => setNow(getCurrentUtcTimestamp()), 1000);
     return () => window.clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    saveCalibration(calibration);
-  }, [calibration]);
 
   useEffect(() => {
     if (!notificationsEnabled || notificationPermission !== 'granted') {
@@ -71,20 +67,12 @@ function App() {
   }, [prediction.displayTimestamp, schedule.spawnIntervalSeconds, displayCount]);
 
   const handleConfirmSpawn = () => {
-    const nextCalibration = applyCalibrationConfirmation(schedule, calibration, now, prediction.displayTimestamp);
-    setCalibration(nextCalibration);
+    calibration.addSpawn(now)
     setStatusMessage('Calibration updated from the latest confirmation.');
   };
 
   const handleResetCalibration = () => {
-    const resetState: CalibrationState = {
-      confirmedSpawns: [],
-      userAnchor: null,
-      averageDrift: 0,
-      confidence: 1,
-      lastCalibrationCycle: 0,
-    };
-    setCalibration(resetState);
+    calibration.reset()
     setStatusMessage('Calibration reset. Stock timing remains unchanged.');
   };
 
@@ -264,7 +252,7 @@ function App() {
           <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-xl font-semibold">Your calibration history</h3>
-              <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-200">Your adjusted time: {calibration.userAnchor ? formatLocalLabel(calibration.userAnchor) : 'not set'}</div>
+              <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-200">Your adjusted time: {calibration.getDrift()!=0 ? formatLocalLabel(prediction.displayTimestamp) : 'not set'}</div>
             </div>
             <div className="mt-4 space-y-3">
               {calibration.confirmedSpawns.length === 0 ? (
@@ -273,7 +261,7 @@ function App() {
                 calibration.confirmedSpawns.map((entry, index) => (
                   <div key={`${entry.actualTimestamp}-${index}`} className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 text-sm text-slate-300">
                     <div className="font-medium">#{index + 1} • Offset {entry.drift}s</div>
-                    <div className="mt-1 text-slate-400">Observed {formatLocalLabel(entry.actualTimestamp)} • Expected {formatLocalLabel(entry.predictedTimestamp)}</div>
+                    <div className="mt-1 text-slate-400">Observed {formatLocalLabel(entry.actualTimestamp)}</div>
                   </div>
                 ))
               )}
@@ -288,10 +276,10 @@ function App() {
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Current Unix time: {now}</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Current time: {formatLocalLabel(now)}</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Base time: {formatLocalLabel(schedule.getAnchor())}</div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Your adjusted time: {calibration.userAnchor ? formatLocalLabel(calibration.userAnchor) : 'not set'}</div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Your adjusted time: {calibration.getDrift()!=0 ? formatLocalLabel(prediction.displayTimestamp) : 'not set'}</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Cycle number: {prediction.cycle}</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Time since predicted spawn: {Math.abs(prediction.driftSeconds)}s</div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Average offset: {calibration.averageDrift}s</div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Average offset: {calibration.getDrift()}s</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Confidence: {(confidence * 100).toFixed(0)}%</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Prediction window: {createWindowLabel(prediction)}</div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">Window range: {formatLocalLabel(prediction.windowStart)} → {formatLocalLabel(prediction.windowEnd)}</div>
