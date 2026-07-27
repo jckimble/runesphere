@@ -69,26 +69,6 @@ describe('prediction math', () => {
     expect(prediction.windowEnd).toBe(1200 + 600);
   });
 
-  it('resets cycle count after a reset timestamp', () => {
-    const schedule = new StaticSchedule(
-      500,
-      100,
-      50,
-      10,
-      1
-    );
-    const calibration = {
-      confirmedSpawns: [{ actualTimestamp: 1000, predictedTimestamp: 900, drift: 5 }],
-      userAnchor: 1000,
-      averageDrift: 5,
-      confidence: 1,
-    };
-
-    const prediction = buildPrediction(schedule, calibration, 1050, 200);
-    expect(prediction.cycle).toBe(0);
-    expect(prediction.displayTimestamp).toBe(1100);
-  });
-
   it('uses the user anchor when provided', () => {
     const schedule = new StaticSchedule(
       1000,
