@@ -156,7 +156,6 @@ function App() {
                   <li>Base time: {formatLocalLabel(schedule.getAnchor())}</li>
                   <li>Repeat every: {schedule.spawnIntervalSeconds} seconds</li>
                   <li>Search window: ±{schedule.searchWindowMinutes} minutes</li>
-                  <li>Calibration decays by 2% per cycle after a confirmation.</li>
                 </ul>
               </section>
               <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6">
