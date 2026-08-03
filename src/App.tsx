@@ -104,17 +104,27 @@ function App() {
   const calibrationStatus = useMemo(() => CALIBRATION_STATUS[calibration.getStatus()], [calibration]);
   const calibrationSummary = useMemo(() => prediction.getCalibrationSummary(), [prediction]);
 
-  const runesphere = useMemo(() => {
+  const nextPrediction = useMemo(
+    () => new PredictedTimestamp(restartTimestamp, calibration, prediction.getCycle() + 1),
+    [restartTimestamp, calibration, prediction],
+  );
+
+  const displayPrediction = useMemo(() => {
     const currentSpawn = prediction.getNormalizedTimestamp();
-    const nextSpawn = currentSpawn + SPAWN_INTERVAL_SECONDS;
     const currentEnd = currentSpawn + SPHERE_LIFETIME_SECONDS;
-    const showingCurrent = now >= currentSpawn && now < currentEnd;
-    const active = showingCurrent;
-    const secondsUntilNext = active
-      ? currentEnd - now
-      : now < currentSpawn
-      ? currentSpawn - now
-      : nextSpawn - now;
+
+    if (now < currentEnd) {
+      return prediction;
+    }
+
+    return nextPrediction;
+  }, [prediction, nextPrediction, now]);
+
+  const runesphere = useMemo(() => {
+    const currentSpawn = displayPrediction.getNormalizedTimestamp();
+    const currentEnd = currentSpawn + SPHERE_LIFETIME_SECONDS;
+    const active = now >= currentSpawn && now < currentEnd;
+    const secondsUntilNext = active ? currentEnd - now : currentSpawn - now;
 
     const offPeriodStart = now < currentSpawn
       ? currentSpawn - (SPAWN_INTERVAL_SECONDS - SPHERE_LIFETIME_SECONDS)
@@ -129,8 +139,10 @@ function App() {
       progressPercent: progress,
       secondsUntilNext,
       active,
+      currentSpawn,
+      currentEnd,
     };
-  }, [calibration, now]);
+  }, [displayPrediction, now]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(getCurrentUtcTimestamp()), 1000);
@@ -289,7 +301,7 @@ function App() {
             <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-sm transition-all duration-200 hover:-translate-y-1 hover:border-cyan-500/30">
               <p className="text-sm uppercase tracking-[0.3em] text-slate-400">{runesphere.active?"Current RuneSphere":"Next search window"}</p>
               <p className="text-sm text-slate-600">{runesphere.active?"Runesphere spawned at: "+formatLocalLabel(prediction.getNormalizedTimestamp()):"Runesphere will spawn soon"}</p>
-              <h2 className="mt-3 text-3xl font-semibold text-white">{createWindowLabel(prediction,runesphere.active)}</h2>
+              <h2 className="mt-3 text-3xl font-semibold text-white">{createWindowLabel(displayPrediction,runesphere.active)}</h2>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
                   <p className="text-sm text-slate-400">{runesphere.active?"RuneSphere despawns in ":"RuneSphere spawns in "}</p>
