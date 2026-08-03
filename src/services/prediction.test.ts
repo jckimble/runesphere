@@ -25,7 +25,6 @@ function createPreviousWeekSpawn(resetTimestamp: ResetTimestamp, driftSeconds: n
 describe('RuneSphere timing services', () => {
   beforeAll(() => {
     if (typeof window === 'undefined') {
-      // @ts-expect-error -- define global window for tests when running in Node
       (globalThis as any).window = {
         localStorage: {
           storage: {} as Record<string, string>,
