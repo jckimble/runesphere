@@ -199,9 +199,6 @@ function App() {
       const title = 'RuneSphere search window is open';
       const body = `Window starts at ${new Date(start * 1000).toLocaleTimeString()} UTC.`;
       new Notification(title, { body, tag: 'runesphere-window' });
-      if ('vibrate' in navigator) {
-        navigator.vibrate?.(200);
-      }
       setNotifiedWindowKey(windowKey);
     }
   }, [notificationsEnabled, notificationPermission, notifiedWindowKey, now, prediction]);
@@ -215,14 +212,24 @@ function App() {
   }, [prediction, displayCount]);
 
   const handleConfirmSpawn = () => {
-    calibration.addTimestamp(new SpawnTimestamp());
-    setStatusMessage('Calibration updated from the latest confirmation.');
-    setCalibrationVersion((version) => version + 1);
+    try {
+      calibration.addTimestamp(new SpawnTimestamp());
+      setStatusMessage('Calibration updated from the latest confirmation.');
+      setCalibrationVersion((version) => version + 1);
+    } catch (error) {
+      console.error('Unable to record spawn confirmation', error);
+      setStatusMessage('Unable to record the confirmation. Please try again.');
+    }
   };
   const handleConfirmDespawn = () => {
-    calibration.addTimestamp(new DespawnTimestamp());
-    setStatusMessage('Calibration updated from the latest confirmation.');
-    setCalibrationVersion((version) => version + 1);
+    try {
+      calibration.addTimestamp(new DespawnTimestamp());
+      setStatusMessage('Calibration updated from the latest confirmation.');
+      setCalibrationVersion((version) => version + 1);
+    } catch (error) {
+      console.error('Unable to record despawn confirmation', error);
+      setStatusMessage('Unable to record the confirmation. Please try again.');
+    }
   }
 
   const handleResetCalibration = () => {
