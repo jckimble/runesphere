@@ -9,7 +9,6 @@ export default defineConfig(({ command }) => {
     plugins.push(
       VitePWA({
         registerType: 'autoUpdate',
-        devOptions: { enabled: true },
         includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
         manifest: {
           name: 'RuneSphere Finder',

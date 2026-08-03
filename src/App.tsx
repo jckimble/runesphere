@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Component, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { getCurrentUtcTimestamp, PredictedTimestamp } from './services/prediction';
@@ -76,6 +76,35 @@ function formatLocalLabel(timestampSeconds: number) {
     dateStyle: 'medium',
     timeStyle: 'medium',
   }).format(new Date(timestampSeconds * 1000));
+}
+
+type ErrorBoundaryProps = {
+  children: ReactNode;
+  fallback: ReactNode;
+};
+
+type ErrorBoundaryState = {
+  hasError: boolean;
+};
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('RuneSphere app render error', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
 }
 
 function App() {
@@ -288,6 +317,14 @@ function App() {
   };
 
   return (
+    <ErrorBoundary fallback={(
+      <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-slate-800 bg-slate-900/80 p-6 text-center shadow-2xl shadow-black/30">
+          <h1 className="text-2xl font-semibold">Something went wrong</h1>
+          <p className="mt-3 text-sm text-slate-400">The app hit an unexpected error while rendering. Please refresh and try again.</p>
+        </div>
+      </div>
+    )}>
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-sm">
@@ -510,6 +547,7 @@ function App() {
         )}
       </div>
     </div>
+    </ErrorBoundary>
   );
 }
 
