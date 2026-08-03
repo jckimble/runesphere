@@ -73,4 +73,35 @@ describe('calibration state', () => {
 
     expect(calibration.getAverageDrift()).toBe(currentWeekTimestamp.getDrift());
   });
+
+  it('does not throw when local storage is unavailable', () => {
+    const calibration = new CalibrationState();
+    calibration.reset();
+
+    const originalLocalStorage = window.localStorage;
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: () => {
+          throw new Error('storage unavailable');
+        },
+        setItem: () => {
+          throw new Error('storage unavailable');
+        },
+        removeItem: () => {
+          throw new Error('storage unavailable');
+        },
+        clear: () => {
+          throw new Error('storage unavailable');
+        },
+      },
+    });
+
+    expect(() => calibration.addTimestamp(new SpawnTimestamp(new Date()))).not.toThrow();
+
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: originalLocalStorage,
+    });
+  });
 });

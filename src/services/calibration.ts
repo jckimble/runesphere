@@ -105,13 +105,13 @@ export class CalibrationState {
       return;
     }
 
-    const stored = window.localStorage.getItem(this.STORAGE_KEY);
-
-    if (!stored) {
-      return;
-    }
-
     try {
+      const stored = window.localStorage.getItem(this.STORAGE_KEY);
+
+      if (!stored) {
+        return;
+      }
+
       const data = JSON.parse(stored);
       this.timestamps = (data.spawnTimestamps ?? []).map((entry: { type: string; timestamp: number }) => Timestamp.fromJSON(entry));
     } catch {
@@ -124,12 +124,16 @@ export class CalibrationState {
       return;
     }
 
-    window.localStorage.setItem(
-      this.STORAGE_KEY,
-      JSON.stringify({
-        spawnTimestamps: this.timestamps.map((entry) => entry.toJSON()),
-      }),
-    );
+    try {
+      window.localStorage.setItem(
+        this.STORAGE_KEY,
+        JSON.stringify({
+          spawnTimestamps: this.timestamps.map((entry) => entry.toJSON()),
+        }),
+      );
+    } catch {
+      // Ignore storage failures on mobile browsers or private browsing modes.
+    }
   }
 
   private getWeekSummaries(): CalibrationWeekSummary[] {
