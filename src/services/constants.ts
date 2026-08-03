@@ -1,0 +1,3 @@
+export const SPAWN_INTERVAL_SECONDS = 9050;
+export const SPHERE_LIFETIME_SECONDS = 3620;
+export const SEARCH_WINDOW_MINUTES = 5;

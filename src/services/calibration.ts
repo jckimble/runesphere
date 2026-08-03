@@ -1,114 +1,64 @@
-export type CalibrationSpawn = {
-    actualTimestamp: number;
-    resetTimestamp: number;
-    drift: number;
-    cycle: number;
-}
-
-export const CalibrationSpawnTimestamp = (actualTimestamp: number): CalibrationSpawn => {
-    const now = new Date(actualTimestamp * 1000);
-    const currentDay = now.getUTCDay();
-    const daysToSubtract = currentDay === 0 ? 6 : currentDay - 1;
-    const resetDate = new Date(Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-        10, 30, 0, 0
-    ));
-    resetDate.setUTCDate(resetDate.getUTCDate() - daysToSubtract);
-    if (now.getTime() < resetDate.getTime()) {
-        resetDate.setUTCDate(resetDate.getUTCDate() - 7);
-    }
-    const resetTimestamp = Math.floor(resetDate.getTime() / 1000);
-
-    const drift = (actualTimestamp - resetTimestamp) % 9050;
-    const cycle = Math.floor((actualTimestamp - resetTimestamp) / 9050);
-    return {
-        actualTimestamp,
-        resetTimestamp,
-        drift,
-        cycle
-    }
-}
+import { Timestamp } from "./timestamp";
 
 export class CalibrationState {
-  public confirmedSpawns: CalibrationSpawn[] = [];
+  private spawnTimestamps: Timestamp[] = [];
   private readonly STORAGE_KEY = "calibrationState";
 
   constructor() {
     this.load();
+    if(this.prune()){
+      this.save();
+    }
   }
 
-  addSpawn(actualTimestamp: number) {
-    this.confirmedSpawns.push(
-      CalibrationSpawnTimestamp(actualTimestamp)
-    );
+  getTimestamps(): Timestamp[] {
+    return this.spawnTimestamps;
+  }
+
+  addTimestamp(timestamp: Timestamp) {
+    if (this.spawnTimestamps.some(t => t.matches(timestamp))) {
+      return;
+    }
+    this.spawnTimestamps.push(timestamp);
+    this.spawnTimestamps.sort((a, b) => a.getNormalizedTimestamp() - b.getNormalizedTimestamp());
     this.save();
   }
 
-  removeSpawn(index: number) {
-    this.confirmedSpawns.splice(index, 1);
+  removeTimestamp(index: number) {
+    this.spawnTimestamps.splice(index, 1);
     this.save();
   }
 
   reset() {
-    this.confirmedSpawns = [];
+    this.spawnTimestamps = [];
     this.save();
   }
 
-  getDrift(): number {
-    if (this.confirmedSpawns.length === 0) {
-      return 0;
+  getStatus(): "verified" | "calibrated" | "estimated" {
+    if (this.spawnTimestamps.length === 0) {
+      return "estimated";
     }
-    const weeklySpawns = Array.from(
-        this.confirmedSpawns.reduce((map, spawn) => {
-            const existing = map.get(spawn.resetTimestamp);
-            if (!existing || spawn.cycle < existing.cycle) {
-                map.set(spawn.resetTimestamp, spawn);
-            }
-            return map;
-        }, new Map<number, CalibrationSpawn>())
-    .values())
-    const totalDrift = weeklySpawns.reduce((sum, spawn) => sum + spawn.drift,0);
-    return Math.round(totalDrift / weeklySpawns.length);
-  }
 
-  getCycle(): number {
-    if (this.confirmedSpawns.length === 0) {
-      return 0;
-    }
-    const weekResetTimestamp = this.getResetTimestamp();
-    const currentWeekSpawns = this.confirmedSpawns.filter(
-        spawn => spawn.resetTimestamp === weekResetTimestamp
+    const currentWeek = this.spawnTimestamps.some(
+      (spawn) => spawn.thisWeeklyReset(),
     );
 
-    if (currentWeekSpawns.length === 0) {
-        return 0;
+    if (currentWeek) {
+      return "verified";
     }
 
-    return Math.max(
-        ...currentWeekSpawns.map(spawn => spawn.cycle)
-    );
+    return "calibrated";
   }
 
-  private getResetTimestamp(now: Date = new Date()): number {
-    const currentDay = now.getUTCDay();
-    const daysToSubtract = currentDay === 0 ? 6 : currentDay - 1;
-    const resetDate = new Date(Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-        10, 30, 0, 0
-    ));
-    resetDate.setUTCDate(resetDate.getUTCDate() - daysToSubtract);
-    if (now.getTime() < resetDate.getTime()) {
-        resetDate.setUTCDate(resetDate.getUTCDate() - 7);
-    }
-    return Math.floor(resetDate.getTime() / 1000);
+  private prune(): boolean {
+    const cutoff = Math.floor(Date.now()/1000) - (60*60*24*90);
+    const before = this.spawnTimestamps.length;
+    this.spawnTimestamps = this.spawnTimestamps.filter(t => t.getNormalizedTimestamp() >= cutoff);
+    return before !== this.spawnTimestamps.length;
   }
 
   private load() {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return;
     }
 
@@ -120,22 +70,22 @@ export class CalibrationState {
 
     try {
       const data = JSON.parse(stored);
-      this.confirmedSpawns = data.confirmedSpawns ?? [];
+      this.spawnTimestamps = (data.spawnTimestamps ?? []).map((t: {type: string, timestamp: number}) => Timestamp.fromJSON(t));
     } catch {
-      this.confirmedSpawns = [];
+      this.spawnTimestamps = [];
     }
   }
 
   private save() {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return;
     }
 
     window.localStorage.setItem(
       this.STORAGE_KEY,
       JSON.stringify({
-        confirmedSpawns: this.confirmedSpawns,
-      })
+        spawnTimestamps: this.spawnTimestamps.map(t => t.toJSON()),
+      }),
     );
   }
 }

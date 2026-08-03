@@ -1,40 +1,45 @@
 # RuneSphere Finder
 
-RuneSphere Finder is a Progressive Web App for predicting RuneScape 3 RuneSphere search windows.
+RuneSphere Finder is a Progressive Web App for predicting RuneScape 3 RuneSphere search windows. It uses RuneScape's weekly reset timing plus optional user calibration to estimate upcoming spawn windows and search intervals.
 
-The application uses the RuneSphere weekly reset time as an anchor and calculates future RuneSphere spawns using the known spawn interval. Optional user confirmations are used to measure timing drift and improve future predictions.
+## How it works
 
-## Features
+- The app uses a weekly reset anchor at 10:30 UTC on Mondays to establish the base spawn cycle.
+- RuneSpheres are expected to follow a fixed cycle interval of `9050` seconds between spawns.
+- Each sphere remains active for `3620` seconds, and the app shows a search window around the spawn time.
+- The prediction engine can work in three modes:
+  - `Verified`: A confirmed RuneSphere spawn or despawn has been recorded this week.
+  - `Calibrated`: The app averages timing from prior weeks when no current-week confirmation exists.
+  - `Estimated`: No calibration exists yet, so it relies on stock weekly reset timing.
 
-- Predicts RuneSphere spawn times and search windows
-- Uses UTC-based timing from the weekly reset anchor
-- Calculates RuneSphere cycles using the 9050 second spawn interval
-- Supports manual RuneSphere confirmations for calibration
-- Automatically calculates timing drift from confirmed spawns
+## Key features
+
+- Predicts current and future RuneSphere spawn windows in UTC
+- Displays nearby recent spawn times and upcoming search windows
+- Confirms spawns or despawns to calibrate timing automatically
 - Stores calibration history in browser local storage
-- Averages calibration data across weekly reset periods
-- Shows recent RuneSphere spawns and upcoming search windows
-- Displays calibration confidence based on cycles since confirmation
-- Includes browser notifications and vibration support when available
-- Works as an installable Progressive Web App (PWA)
+- Supports import of timestamps via query string (`?t=<unix|ISO>`) and shareable links
+- Shows calibration status, confidence details, and developer diagnostics
+- Sends browser notifications and vibration alerts during active windows when permitted
+- Built as an installable Progressive Web App
 
-## How Calibration Works
+## User workflow
 
-Calibration does not replace the schedule. Instead, confirmed RuneSphere spawns are used to calculate the difference between the expected schedule and the observed spawn time.
+1. Open the app and view the next predicted RuneSphere window.
+2. Confirm a spawn or despawn to improve future predictions.
+3. The app stores confirmed timestamps locally and updates drift calculations.
+4. Use the calibration history tab to review, remove, or share timestamp entries.
+5. Import a timestamp by appending `?t=<timestamp>` to the URL, where `<timestamp>` is either:
+   - a Unix seconds value
+   - an ISO datetime string
 
-Each confirmation stores:
+## Calibration and prediction logic
 
-- Actual spawn timestamp
-- Weekly reset timestamp
-- RuneSphere cycle number
-- Calculated drift from the expected timing
-
-When calculating drift:
-- Confirmed spawns are grouped by weekly reset period
-- The earliest cycle confirmation from each period is used
-- The average drift across available weeks is applied to predictions
-
-This allows the application to adjust for server timing differences without requiring a manually maintained schedule.
+- The app groups confirmed timestamps by their weekly reset period.
+- Each timestamp is converted into a cycle drift relative to the nearest reset anchor.
+- If the current week contains confirmed entries, the latest first spawn drift is used.
+- If no current-week data is available, the app averages previous week drift values.
+- Calibration state is pruned automatically to remove stale entries older than 90 days.
 
 ## Development
 
@@ -55,10 +60,16 @@ npm install
 npm run dev
 ```
 
-### Run tests
+### Run unit tests
 
 ```bash
 npm test
+```
+
+### Lint the code
+
+```bash
+npm run lint
 ```
 
 ### Build for production
@@ -67,36 +78,18 @@ npm test
 npm run build
 ```
 
-## Project Structure
+## Project structure
 
-```
-src/
-├── App.tsx
-│   Main application UI and tab navigation
-│
-├── services/
-│   ├── prediction.ts
-│   │   RuneSphere prediction calculations,
-│   │   confidence calculations, and display helpers
-│   │
-│   ├── calibration.ts
-│   │   Spawn confirmation tracking,
-│   │   drift calculation, and local storage persistence
-│   │
-│   └── schedule.ts
-│       RuneSphere schedule definition and weekly reset anchor logic
-│
-├── index.css
-│   Application styling
-│
-└── main.tsx
-    Application entry point
-```
+- `src/App.tsx` - main React UI, navigation tabs, notification handling, and calibration controls
+- `src/services/prediction.ts` - prediction engine, drift calculation, and weekly summary generation
+- `src/services/calibration.ts` - calibration state management, local storage persistence, and timestamp CRUD
+- `src/services/timestamp.ts` - timestamp abstractions for spawn, despawn, reset, and imported entries
+- `src/services/constants.ts` - shared timing constants like spawn interval and sphere lifetime
+- `src/services/*.test.ts` - unit tests for prediction, calibration, and timestamp logic
+- `public/` - static assets, PWA manifest, and data files
 
-## Future Improvements
+## Notes
 
-Potential future improvements include:
-
-- Sharing confirmed timestamps through URLs
-- Additional calibration visualization
-- More detailed prediction accuracy tracking
+- The app is designed for UTC-aligned RuneSphere timing and works best when the browser clock is accurate.
+- Local storage calibration is browser-specific and does not sync across devices.
+- Importing or sharing a timestamp via URL updates the calibration state without manual typing.

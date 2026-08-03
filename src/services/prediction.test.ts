@@ -1,123 +1,143 @@
-import { describe, expect, it } from 'vitest';
-import { buildPrediction, getCalibrationConfidence, getRecentSpawnTimestamps } from './prediction';
-import { StaticSchedule } from './schedule';
-import { CalibrationSpawn, CalibrationState } from './calibration';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CalibrationState } from './calibration';
+import { PredictedTimestamp } from './prediction';
+import { DespawnTimestamp, ImportedSpawnTimestamp, ResetTimestamp, SpawnTimestamp } from './timestamp';
+import { SPAWN_INTERVAL_SECONDS } from './constants';
 
-class TestCalibrationState extends CalibrationState {
-  private cycle: number
-  constructor(cs: CalibrationSpawn[] = [],cycle:number = -1) {
-    super();
-    this.cycle=cycle
-    this.confirmedSpawns = cs;
-  }
-  getCycle(): number {
-    if (this.cycle != -1){
-      return this.cycle
-    }
-    return super.getCycle()
-  }
+function createSpawnAt(resetTimestamp: ResetTimestamp, additionalDriftSeconds: number) {
+  const timestamp = resetTimestamp.getTimestamp() + additionalDriftSeconds;
+  return new SpawnTimestamp(new Date(timestamp * 1000));
 }
-const emptyCalibration = new TestCalibrationState();
 
-describe('prediction math', () => {
-  it('calculates the next window around the anchor', () => {
-    const schedule = new StaticSchedule(
-      1000,
-      50,
-      100,
-      10,
-      1,
-    );
+function createDespawnAt(resetTimestamp: ResetTimestamp, additionalDriftSeconds: number) {
+  const spawnTimestamp = resetTimestamp.getTimestamp() + additionalDriftSeconds;
+  const despawnTimestamp = spawnTimestamp + 3620;
+  return new DespawnTimestamp(new Date(despawnTimestamp * 1000));
+}
 
-    const prediction = buildPrediction(schedule, emptyCalibration, 1050);
-    expect(prediction.cycle).toBe(1);
-    expect(prediction.displayTimestamp).toBe(1050);
-    expect(prediction.windowStart).toBe(1050 - 600);
-    expect(prediction.windowEnd).toBe(1050 + 100);
+function createPreviousWeekSpawn(resetTimestamp: ResetTimestamp, driftSeconds: number) {
+  const resetDate = new Date(resetTimestamp.getNormalizedTimestamp() * 1000);
+  resetDate.setUTCDate(resetDate.getUTCDate() - 7);
+  const previousWeekSpawn = new Date((resetTimestamp.getTimestamp() + driftSeconds - 7 * 24 * 3600) * 1000);
+  return new SpawnTimestamp(previousWeekSpawn);
+}
+
+describe('RuneSphere timing services', () => {
+  beforeAll(() => {
+    if (typeof window === 'undefined') {
+      // @ts-expect-error -- define global window for tests when running in Node
+      (globalThis as any).window = {
+        localStorage: {
+          storage: {} as Record<string, string>,
+          getItem(key: string) {
+            return this.storage[key] ?? null;
+          },
+          setItem(key: string, value: string) {
+            this.storage[key] = value;
+          },
+          removeItem(key: string) {
+            delete this.storage[key];
+          },
+          clear() {
+            this.storage = {} as Record<string, string>;
+          },
+        },
+        URLSearchParams: globalThis.URLSearchParams,
+        location: {
+          pathname: '/',
+          origin: 'http://localhost',
+          search: '',
+        },
+        history: {
+          replaceState: vi.fn(),
+        },
+      };
+    }
   });
 
-  it('calculates the current window when the runesphere is active', () => {
-    const schedule = new StaticSchedule(
-      1000,
-      100,
-      50,
-      10,
-      1
-    );
-
-    const prediction = buildPrediction(schedule, emptyCalibration, 1105);
-    expect(prediction.cycle).toBe(1);
-    expect(prediction.displayTimestamp).toBe(1100);
-    expect(prediction.windowStart).toBe(1100 - 600);
-    expect(prediction.windowEnd).toBe(1100 + 50);
+  beforeEach(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.clear();
+    }
   });
 
-  it('calculates the next window after the runesphere has expired', () => {
-    const schedule = new StaticSchedule(
-      1000,
-      100,
-      50,
-      10,
-      1
-    );
+  it('calculates spawn drift from a confirmed spawn timestamp', () => {
+    const resetTimestamp = new ResetTimestamp();
+    const spawn = createSpawnAt(resetTimestamp, 42);
 
-    const prediction = buildPrediction(schedule, emptyCalibration, 1155);
-    expect(prediction.cycle).toBe(1);
-    expect(prediction.displayTimestamp).toBe(1200);
-    expect(prediction.windowStart).toBe(1200 - 600);
-    expect(prediction.windowEnd).toBe(1200 + 600);
+    expect(spawn.getDrift()).toBe(42);
+    expect(spawn.getCycle()).toBe(1);
   });
 
-  it('calculates the next window after a confirmed spawn', () => {
-    const schedule = new StaticSchedule(
-      1000,
-      100,
-      50,
-      10,
-      1
-    );
-    const calibration = new TestCalibrationState([{ actualTimestamp: 1105, resetTimestamp: 1100, drift: 5, cycle:1 }]);
+  it('calculates despawn drift using normalized spawn time', () => {
+    const resetTimestamp = new ResetTimestamp();
+    const despawn = createDespawnAt(resetTimestamp, 37);
 
-    const prediction = buildPrediction(schedule, calibration, 1150);
-    expect(prediction.displayTimestamp).toBe(1105);
-    expect(prediction.driftSeconds).toBe(45);
+    expect(despawn.getDrift()).toBe(37);
+    expect(despawn.getCycle()).toBe(1);
+    expect(despawn.getNormalizedTimestamp()).toBe(resetTimestamp.getTimestamp() + 37);
   });
 
-  it('returns the most recent spawn timestamps', () => {
-    const schedule = new StaticSchedule(
-      1000,
-      100,
-      50,
-      10,
-      1,
-    );
-    const prediction = {
-      cycle: 1,
-      displayTimestamp: 1100,
-      windowStart: 500,
-      windowEnd: 1700,
-      driftSeconds: 0,
-      progressPercent: 0,
-      secondsUntilNext: 0,
-      active: false
-    };
+  it('parses imported unix and ISO timestamps correctly', () => {
+    const unixSeconds = 1700000000;
+    const importedNumeric = new ImportedSpawnTimestamp(unixSeconds);
+    expect(importedNumeric.getTimestamp()).toBe(unixSeconds);
+    expect(importedNumeric.getDrift()).toBe(importedNumeric.getDrift());
 
-    expect(getRecentSpawnTimestamps(prediction, schedule, 3)).toEqual([1000, 900, 800]);
+    const isoString = new Date(unixSeconds * 1000).toISOString();
+    const importedIso = new ImportedSpawnTimestamp(isoString);
+    expect(importedIso.getTimestamp()).toBe(unixSeconds);
   });
 
-  it('derives confidence from cycles since the last calibration', () => {
-    const calibration = new TestCalibrationState([],3);
-    const prediction = {
-      cycle: 7,
-      displayTimestamp: 1100,
-      windowStart: 500,
-      windowEnd: 1700,
-      driftSeconds: 0,
-      progressPercent: 0,
-      secondsUntilNext: 0,
-      active: false
-    };
+  it('returns zero drift when no calibration history exists', () => {
+    const resetTimestamp = new ResetTimestamp();
+    const calibration = new CalibrationState();
+    calibration.reset();
 
-    expect(getCalibrationConfidence(calibration, prediction)).toBe(0.96);
+    const prediction = new PredictedTimestamp(resetTimestamp, calibration);
+    expect(prediction.getDrift()).toBe(0);
+    expect(prediction.getCalibrationSummary().weeks).toBe(0);
+    expect(prediction.getCalibrationSummary().totalEntries).toBe(0);
+  });
+
+  it('uses current week first spawn drift when current week has confirmed entries', () => {
+    const resetTimestamp = new ResetTimestamp();
+    const calibration = new CalibrationState();
+    calibration.reset();
+
+    const currentWeekSpawn = createSpawnAt(resetTimestamp, 25);
+    calibration.addTimestamp(currentWeekSpawn);
+
+    const prediction = new PredictedTimestamp(resetTimestamp, calibration);
+    expect(prediction.getDrift()).toBe(25);
+    expect(prediction.getCalibrationSummary().weeks).toBe(1);
+    expect(prediction.getCalibrationSummary().currentWeekCount).toBe(1);
+    expect(prediction.getCalibrationSummary().currentWeekFirstDrift).toBe(25);
+  });
+
+  it('averages week drift when no current-week confirmation exists', () => {
+    const resetTimestamp = new ResetTimestamp();
+    const calibration = new CalibrationState();
+    calibration.reset();
+
+    const previousWeekSpawn = createPreviousWeekSpawn(resetTimestamp, 15);
+    calibration.addTimestamp(previousWeekSpawn);
+
+    const otherPreviousWeekSpawn = new SpawnTimestamp(
+      new Date((previousWeekSpawn.getTimestamp() + SPAWN_INTERVAL_SECONDS) * 1000),
+    );
+    calibration.addTimestamp(otherPreviousWeekSpawn);
+
+    const prediction = new PredictedTimestamp(resetTimestamp, calibration);
+    const summary = prediction.getCalibrationSummary();
+
+    expect(summary.weeks).toBe(1);
+    expect(summary.totalEntries).toBe(2);
+    expect(summary.currentWeekCount).toBe(0);
+    expect(summary.currentWeekFirstDrift).toBe(0);
+    expect(summary.weekSummaries[0].firstDrift).toBe(15);
+    expect(summary.weekSummaries[0].entries).toHaveLength(2);
+    expect(summary.currentWeekAverageIntervalDrift).toBe(0);
+    expect(prediction.getDrift()).toBe(15);
   });
 });
