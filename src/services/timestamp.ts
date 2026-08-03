@@ -43,6 +43,10 @@ export abstract class Timestamp {
   }
 
   protected getResetTimestamp(now: Date = new Date()): number {
+    return Timestamp.getResetTimestamp(now);
+  }
+
+  static getResetTimestamp(now: Date = new Date()): number {
     const currentDay = now.getUTCDay();
     const daysToSubtract = currentDay === 0 ? 6 : currentDay - 1;
     const resetDate = new Date(

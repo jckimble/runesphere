@@ -4,12 +4,12 @@ RuneSphere Finder is a Progressive Web App for predicting RuneScape 3 RuneSphere
 
 ## How it works
 
-- The app uses a weekly reset anchor at 10:30 UTC on Mondays to establish the base spawn cycle.
+- The app uses a weekly reset anchor at 10:30 UTC on Mondays to establish the base timestamp and spawn cycle.
 - RuneSpheres are expected to follow a fixed cycle interval of `9050` seconds between spawns.
 - Each sphere remains active for `3620` seconds, and the app shows a search window around the spawn time.
 - The prediction engine can work in three modes:
   - `Verified`: A confirmed RuneSphere spawn or despawn has been recorded this week.
-  - `Calibrated`: The app averages timing from prior weeks when no current-week confirmation exists.
+  - `Calibrated`: The app uses historical timing from prior weeks when no current-week confirmation exists.
   - `Estimated`: No calibration exists yet, so it relies on stock weekly reset timing.
 
 ## Key features
@@ -37,9 +37,10 @@ RuneSphere Finder is a Progressive Web App for predicting RuneScape 3 RuneSphere
 
 - The app groups confirmed timestamps by their weekly reset period.
 - Each timestamp is converted into a cycle drift relative to the nearest reset anchor.
-- If the current week contains confirmed entries, the latest first spawn drift is used.
-- If no current-week data is available, the app averages previous week drift values.
+- If the current week contains confirmed entries, that week's drift is used as the calibration offset.
+- If no current-week data is available, the app averages the historical drift values from saved calibration entries.
 - Calibration state is pruned automatically to remove stale entries older than 90 days.
+- Predictions are generated from the base reset timestamp plus the calibration offset, rather than from the reset time alone.
 
 ## Development
 
@@ -81,8 +82,8 @@ npm run build
 ## Project structure
 
 - `src/App.tsx` - main React UI, navigation tabs, notification handling, and calibration controls
-- `src/services/prediction.ts` - prediction engine, drift calculation, and weekly summary generation
-- `src/services/calibration.ts` - calibration state management, local storage persistence, and timestamp CRUD
+- `src/services/prediction.ts` - prediction engine that applies the calibration offset to the base reset timestamp
+- `src/services/calibration.ts` - calibration state management, local storage persistence, drift calculations, and weekly summaries
 - `src/services/timestamp.ts` - timestamp abstractions for spawn, despawn, reset, and imported entries
 - `src/services/constants.ts` - shared timing constants like spawn interval and sphere lifetime
 - `src/services/*.test.ts` - unit tests for prediction, calibration, and timestamp logic

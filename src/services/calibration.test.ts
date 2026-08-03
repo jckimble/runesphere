@@ -48,4 +48,29 @@ describe('calibration state', () => {
     expect(calibration.getTimestamps()).toHaveLength(1);
     expect(calibration.getTimestamps()[0].getTimestamp()).toBe(second.getTimestamp());
   });
+
+  it('restores saved timestamps as Timestamp instances', () => {
+    const calibration = new CalibrationState();
+    calibration.reset();
+    const timestamp = new SpawnTimestamp(new Date());
+    calibration.addTimestamp(timestamp);
+
+    const restored = new CalibrationState();
+    expect(restored.getTimestamps()).toHaveLength(1);
+    expect(restored.getTimestamps()[0]).toBeInstanceOf(SpawnTimestamp);
+    expect(restored.getTimestamps()[0].getTimestamp()).toBe(timestamp.getTimestamp());
+  });
+
+  it('prefers the current-week drift and otherwise averages historical drift', () => {
+    const calibration = new CalibrationState();
+    calibration.reset();
+
+    const currentWeekTimestamp = new SpawnTimestamp(new Date(Date.now() - 2 * 60 * 60 * 1000));
+    const historicalTimestamp = new SpawnTimestamp(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000));
+
+    calibration.addTimestamp(historicalTimestamp);
+    calibration.addTimestamp(currentWeekTimestamp);
+
+    expect(calibration.getAverageDrift()).toBe(currentWeekTimestamp.getDrift());
+  });
 });

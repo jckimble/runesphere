@@ -102,7 +102,7 @@ function App() {
   );
 
   const calibrationStatus = useMemo(() => CALIBRATION_STATUS[calibration.getStatus()], [calibration]);
-  const calibrationSummary = useMemo(() => prediction.getCalibrationSummary(), [prediction]);
+  const calibrationSummary = useMemo(() => calibration.getSummary(), [calibration]);
 
   const nextPrediction = useMemo(
     () => new PredictedTimestamp(restartTimestamp, calibration, prediction.getCycle() + 1),
@@ -242,11 +242,27 @@ function App() {
     }
 
     const url = `${window.location.origin}${window.location.pathname}?t=${entry.getNormalizedTimestamp()}`;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
+    const shareData = {
+      title: 'RuneSphere calibration link',
+      text: 'Share this RuneSphere timestamp to help calibrate the prediction.',
+      url,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        setShareMessage('Shared successfully.');
+      } catch (error) {
+        // eslint-disable-next-line no-undef
+        if ((error as DOMException).name !== 'AbortError') {
+          setStatusMessage('Unable to share link using the browser share API.');
+        }
+      }
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(url);
       setShareMessage('Link copied to clipboard.');
     } else {
-      setStatusMessage('Unable to copy link on this browser.');
+      setStatusMessage('Unable to share or copy link on this browser.');
     }
 
     window.setTimeout(() => setShareMessage(null), 3000);
@@ -332,8 +348,8 @@ function App() {
                 </div>
                 <ul className="mt-4 space-y-3 text-sm text-slate-300">
                   <li className={calibrationStatus.textClass}>{calibrationStatus.description}</li>
-                  <li>Restart Time: {formatLocalLabel(restartTimestamp.getNormalizedTimestamp())}</li>
-                  <li>Average Offset: {prediction.getDrift() !== 0 ? formatDuration(prediction.getDrift()) : 'not set'}</li>
+                  <li>Base Timestamp: {formatLocalLabel(restartTimestamp.getNormalizedTimestamp())}</li>
+                  <li>Calibration Offset: {prediction.getDrift() !== 0 ? formatDuration(prediction.getDrift()) : 'not set'}</li>
                   <li>Search window: ±{SEARCH_WINDOW_MINUTES} minutes</li>
                 </ul>
               </section>
