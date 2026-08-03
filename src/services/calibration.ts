@@ -78,7 +78,7 @@ export class CalibrationState {
   }
 
   getSummary(referenceResetTimestamp?: number) {
-    const weeklySummaries = this.getWeekSummaries(referenceResetTimestamp);
+    const weeklySummaries = this.getWeekSummaries();
     const currentReset = referenceResetTimestamp ?? Timestamp.getResetTimestamp(new Date());
     const currentWeek = weeklySummaries.find((summary) => summary.reset === currentReset);
 
@@ -132,7 +132,7 @@ export class CalibrationState {
     );
   }
 
-  private getWeekSummaries(referenceResetTimestamp?: number): CalibrationWeekSummary[] {
+  private getWeekSummaries(): CalibrationWeekSummary[] {
     const timedSpawns = this.timestamps.filter(
       (entry) => entry.type === "spawn" || entry.type === "despawn" || entry.type === "imported_spawn",
     );

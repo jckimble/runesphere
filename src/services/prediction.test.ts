@@ -25,7 +25,8 @@ function createPreviousWeekSpawn(resetTimestamp: ResetTimestamp, driftSeconds: n
 describe('RuneSphere timing services', () => {
   beforeAll(() => {
     if (typeof window === 'undefined') {
-      (globalThis as any).window = {
+      Object.defineProperty(globalThis, 'window', {
+        value: {
         localStorage: {
           storage: {} as Record<string, string>,
           getItem(key: string) {
@@ -50,7 +51,9 @@ describe('RuneSphere timing services', () => {
         history: {
           replaceState: vi.fn(),
         },
-      };
+      },
+      configurable: true,
+    });
     }
   });
 
